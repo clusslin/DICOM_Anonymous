@@ -1,0 +1,122 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+}
+
+// Card styles
+.page-card {
+  margin-bottom: 20px;
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+// Table styles
+.el-table {
+  .cell {
+    word-break: break-word;
+  }
+}
+
+// Form styles
+.search-form {
+  .el-form-item {
+    margin-bottom: 16px;
+  }
+}
+
+// Status tags
+.status-tag {
+  &.pending {
+    --el-tag-bg-color: #e6f7ff;
+    --el-tag-border-color: #91d5ff;
+    --el-tag-text-color: #1890ff;
+  }
+
+  &.downloading, &.processing {
+    --el-tag-bg-color: #fff7e6;
+    --el-tag-border-color: #ffd591;
+    --el-tag-text-color: #fa8c16;
+  }
+
+  &.completed {
+    --el-tag-bg-color: #f6ffed;
+    --el-tag-border-color: #b7eb8f;
+    --el-tag-text-color: #52c41a;
+  }
+
+  &.failed {
+    --el-tag-bg-color: #fff2f0;
+    --el-tag-border-color: #ffccc7;
+    --el-tag-text-color: #ff4d4f;
+  }
+
+  &.cancelled {
+    --el-tag-bg-color: #fafafa;
+    --el-tag-border-color: #d9d9d9;
+    --el-tag-text-color: #8c8c8c;
+  }
+}
+
+// Series list styles
+.series-list {
+  .series-item {
+    padding: 8px 12px;
+    margin: 4px 0;
+    background: #fafafa;
+    border-radius: 4px;
+    border: 1px solid #e8e8e8;
+
+    &:hover {
+      background: #e6f7ff;
+      border-color: #91d5ff;
+    }
+
+    .series-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .series-desc {
+        font-weight: 500;
+      }
+
+      .series-meta {
+        color: #8c8c8c;
+        font-size: 12px;
+      }
+    }
+  }
+}
+
+// Anonymization options
+.anon-options {
+  .el-checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+
+// Loading overlay
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}

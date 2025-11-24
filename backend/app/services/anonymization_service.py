@@ -1,6 +1,6 @@
 """
 DICOM Anonymization Service
-Handles the anonymization of DICOM files while preserving image data and transfer syntax
+Handles the anonymization of DICOM files and decompression of JPEG2000 images
 """
 import os
 import hashlib
@@ -11,13 +11,33 @@ import uuid
 
 from pydicom import dcmread
 from pydicom.dataset import Dataset
-from pydicom.uid import generate_uid
+from pydicom.uid import generate_uid, ExplicitVRLittleEndian
 from pydicom.tag import Tag
+from pydicom.pixel_data_handlers.util import convert_color_space
 
 from app.models.anonymization_config import DEFAULT_ANONYMIZATION_TAGS
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# JPEG2000 Transfer Syntax UIDs
+JPEG2000_TRANSFER_SYNTAXES = [
+    "1.2.840.10008.1.2.4.90",  # JPEG 2000 Image Compression (Lossless Only)
+    "1.2.840.10008.1.2.4.91",  # JPEG 2000 Image Compression
+]
+
+# All compressed transfer syntaxes
+COMPRESSED_TRANSFER_SYNTAXES = [
+    "1.2.840.10008.1.2.4.50",  # JPEG Baseline
+    "1.2.840.10008.1.2.4.51",  # JPEG Extended
+    "1.2.840.10008.1.2.4.57",  # JPEG Lossless
+    "1.2.840.10008.1.2.4.70",  # JPEG Lossless, First-Order Prediction
+    "1.2.840.10008.1.2.4.80",  # JPEG-LS Lossless
+    "1.2.840.10008.1.2.4.81",  # JPEG-LS Lossy
+    "1.2.840.10008.1.2.4.90",  # JPEG 2000 Lossless
+    "1.2.840.10008.1.2.4.91",  # JPEG 2000 Lossy
+    "1.2.840.10008.1.2.5",     # RLE Lossless
+]
 
 
 class AnonymizationService:
@@ -124,6 +144,48 @@ class AnonymizationService:
                 for item in elem.value:
                     self.anonymize_dataset(item)
 
+    def _is_compressed(self, ds: Dataset) -> bool:
+        """Check if the dataset uses a compressed transfer syntax"""
+        if not hasattr(ds, 'file_meta') or not hasattr(ds.file_meta, 'TransferSyntaxUID'):
+            return False
+        return str(ds.file_meta.TransferSyntaxUID) in COMPRESSED_TRANSFER_SYNTAXES
+
+    def _decompress_pixel_data(self, ds: Dataset) -> Dataset:
+        """
+        Decompress pixel data from JPEG2000 or other compressed formats to uncompressed
+
+        Args:
+            ds: The DICOM dataset with compressed pixel data
+
+        Returns:
+            Dataset with uncompressed pixel data
+        """
+        try:
+            original_syntax = str(ds.file_meta.TransferSyntaxUID)
+
+            # Check if compressed
+            if original_syntax not in COMPRESSED_TRANSFER_SYNTAXES:
+                logger.debug(f"File is not compressed, skipping decompression")
+                return ds
+
+            logger.info(f"Decompressing from transfer syntax: {original_syntax}")
+
+            # Decompress the pixel data
+            # This will decode JPEG2000/JPEG/RLE to raw pixel array
+            ds.decompress()
+
+            # Update the transfer syntax to Explicit VR Little Endian (uncompressed)
+            ds.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+
+            logger.info(f"Successfully decompressed to Explicit VR Little Endian")
+
+            return ds
+
+        except Exception as e:
+            logger.error(f"Failed to decompress pixel data: {e}")
+            # If decompression fails, return original dataset
+            return ds
+
     def anonymize_dataset(self, ds: Dataset) -> Dataset:
         """
         Anonymize a DICOM dataset in place
@@ -154,15 +216,15 @@ class AnonymizationService:
         self,
         input_path: str,
         output_path: str,
-        preserve_transfer_syntax: bool = True
+        decompress: bool = True
     ) -> Dict[str, Any]:
         """
-        Anonymize a DICOM file
+        Anonymize a DICOM file and optionally decompress JPEG2000
 
         Args:
             input_path: Path to the input DICOM file
             output_path: Path for the output anonymized file
-            preserve_transfer_syntax: If True, preserve the original transfer syntax (e.g., JPEG2000)
+            decompress: If True, decompress JPEG2000/compressed images to uncompressed format
 
         Returns:
             Dictionary with result information
@@ -172,7 +234,12 @@ class AnonymizationService:
             ds = dcmread(input_path)
 
             # Store original transfer syntax
-            original_transfer_syntax = ds.file_meta.TransferSyntaxUID
+            original_transfer_syntax = str(ds.file_meta.TransferSyntaxUID)
+            was_compressed = self._is_compressed(ds)
+
+            # Decompress if needed
+            if decompress and was_compressed:
+                ds = self._decompress_pixel_data(ds)
 
             # Anonymize the dataset
             self.anonymize_dataset(ds)
@@ -180,18 +247,16 @@ class AnonymizationService:
             # Ensure output directory exists
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-            if preserve_transfer_syntax:
-                # Save with original transfer syntax (don't decompress JPEG2000)
-                ds.save_as(output_path, write_like_original=True)
-            else:
-                # Save with default transfer syntax
-                ds.save_as(output_path)
+            # Save the file
+            ds.save_as(output_path, write_like_original=False)
 
             return {
                 "success": True,
                 "input_path": input_path,
                 "output_path": output_path,
-                "original_transfer_syntax": str(original_transfer_syntax),
+                "original_transfer_syntax": original_transfer_syntax,
+                "was_compressed": was_compressed,
+                "decompressed": decompress and was_compressed,
                 "new_patient_id": self.new_patient_id,
                 "new_patient_name": self.new_patient_name
             }
@@ -208,7 +273,7 @@ class AnonymizationService:
         self,
         input_dir: str,
         output_dir: str,
-        preserve_transfer_syntax: bool = True
+        decompress: bool = True
     ) -> Dict[str, Any]:
         """
         Anonymize all DICOM files in a directory
@@ -216,7 +281,7 @@ class AnonymizationService:
         Args:
             input_dir: Path to input directory containing DICOM files
             output_dir: Path for output directory
-            preserve_transfer_syntax: If True, preserve original transfer syntax
+            decompress: If True, decompress JPEG2000/compressed images
 
         Returns:
             Dictionary with processing statistics
@@ -226,6 +291,7 @@ class AnonymizationService:
             "total_files": 0,
             "processed_files": 0,
             "failed_files": 0,
+            "decompressed_files": 0,
             "files": [],
             "errors": []
         }
@@ -245,10 +311,12 @@ class AnonymizationService:
             rel_path = os.path.relpath(input_path, input_dir)
             output_path = os.path.join(output_dir, rel_path)
 
-            result = self.anonymize_file(input_path, output_path, preserve_transfer_syntax)
+            result = self.anonymize_file(input_path, output_path, decompress)
 
             if result["success"]:
                 results["processed_files"] += 1
+                if result.get("decompressed"):
+                    results["decompressed_files"] += 1
                 results["files"].append(result)
             else:
                 results["failed_files"] += 1

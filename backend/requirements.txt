@@ -12,6 +12,12 @@ alembic==1.13.1
 pydicom==2.4.4
 pynetdicom==2.0.2
 
+# JPEG2000 decompression support
+pylibjpeg==2.0.0
+pylibjpeg-libjpeg==2.1.0
+pylibjpeg-openjpeg==2.2.1
+numpy>=1.24.0
+
 # Authentication
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4

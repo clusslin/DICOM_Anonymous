@@ -301,11 +301,11 @@ class JobService:
                 anonymization_options=anon_options
             )
 
-            # Anonymize files (preserve JPEG2000 transfer syntax)
+            # Anonymize files and decompress JPEG2000 to uncompressed format
             anon_result = anon_service.anonymize_directory(
                 input_dir=temp_dir,
                 output_dir=output_dir,
-                preserve_transfer_syntax=True  # Critical: keep JPEG2000 format
+                decompress=True  # Decompress JPEG2000 to uncompressed format
             )
 
             if not anon_result["success"] and anon_result["processed_files"] == 0:

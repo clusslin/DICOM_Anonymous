@@ -65,6 +65,10 @@ class AnonymizationJob(Base):
     # User who created the job
     created_by = Column(String(50), nullable=True)
 
+    # Audit fields
+    request_reason = Column(Text, nullable=True)  # 申請理由
+    client_ip = Column(String(45), nullable=True)  # IPv4 or IPv6
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)

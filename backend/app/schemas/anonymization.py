@@ -117,6 +117,7 @@ class JobCreate(BaseModel):
     anonymization_options: Optional[AnonymizationOptions] = None
     new_patient_id: Optional[str] = None
     new_patient_name: Optional[str] = None
+    request_reason: Optional[str] = Field(None, description="申請理由")
 
 
 class BatchJobItem(BaseModel):
@@ -138,6 +139,7 @@ class BatchJobCreate(BaseModel):
     anonymization_options: Optional[AnonymizationOptions] = None
     new_patient_id: Optional[str] = None
     new_patient_name: Optional[str] = None
+    request_reason: Optional[str] = Field(None, description="申請理由")
 
 
 class JobStatus(str, Enum):
@@ -173,6 +175,8 @@ class JobResponse(BaseModel):
     error_message: Optional[str] = None
     output_filename: Optional[str] = None
     created_by: Optional[str] = None
+    request_reason: Optional[str] = None
+    client_ip: Optional[str] = None
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None

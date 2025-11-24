@@ -161,6 +161,16 @@
       width="600px"
     >
       <el-form :model="anonymizeForm" label-width="140px">
+        <el-divider content-position="left">申請資訊</el-divider>
+        <el-form-item label="申請理由" required>
+          <el-input
+            v-model="anonymizeForm.request_reason"
+            type="textarea"
+            :rows="3"
+            placeholder="請填寫申請匿名化影像的理由（必填）"
+          />
+        </el-form-item>
+
         <el-divider content-position="left">新病人資訊</el-divider>
         <el-form-item label="新病人ID">
           <el-input v-model="anonymizeForm.new_patient_id" placeholder="留空自動產生" />
@@ -234,6 +244,7 @@ const searchForm = reactive({
 const anonymizeForm = reactive({
   new_patient_id: '',
   new_patient_name: '',
+  request_reason: '',
   options: [
     'remove_patient_name',
     'remove_patient_id',
@@ -330,6 +341,12 @@ const handleAnonymize = async () => {
     return
   }
 
+  // Validate request reason
+  if (!anonymizeForm.request_reason || anonymizeForm.request_reason.trim() === '') {
+    ElMessage.warning('請填寫申請理由')
+    return
+  }
+
   submitting.value = true
   try {
     // Build anonymization options
@@ -365,7 +382,8 @@ const handleAnonymize = async () => {
       items: items,
       anonymization_options: options,
       new_patient_id: anonymizeForm.new_patient_id || null,
-      new_patient_name: anonymizeForm.new_patient_name || null
+      new_patient_name: anonymizeForm.new_patient_name || null,
+      request_reason: anonymizeForm.request_reason.trim()
     }
 
     await jobsStore.createBatchJobs(batchData)
@@ -373,6 +391,7 @@ const handleAnonymize = async () => {
     ElMessage.success('匿名化任務已建立，請至任務列表查看進度')
     anonymizeDialogVisible.value = false
     selectedStudies.value = []
+    anonymizeForm.request_reason = ''  // Reset request reason
 
   } catch (error) {
     ElMessage.error('建立匿名化任務失敗')

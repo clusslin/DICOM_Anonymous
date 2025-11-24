@@ -2,7 +2,7 @@
 Anonymization Jobs API endpoints
 """
 import os
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -23,13 +23,29 @@ from app.schemas.anonymization import (
     DefaultAnonymizationTagsResponse
 )
 from app.services.job_service import JobService
+from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/jobs", tags=["Anonymization Jobs"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Get client IP address from request"""
+    # Check for X-Forwarded-For header (if behind proxy)
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    # Check for X-Real-IP header
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+    # Fall back to direct client IP
+    return request.client.host if request.client else "unknown"
 
 
 @router.post("", response_model=JobResponse)
 async def create_job(
     job_data: JobCreate,
+    request: Request,
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -48,6 +64,9 @@ async def create_job(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Server not found"
         )
+
+    # Get client IP
+    client_ip = get_client_ip(request)
 
     job_service = JobService(db)
 
@@ -69,7 +88,25 @@ async def create_job(
         anonymization_options=anon_options,
         new_patient_id=job_data.new_patient_id,
         new_patient_name=job_data.new_patient_name,
-        created_by=current_user["username"]
+        created_by=current_user["username"],
+        request_reason=job_data.request_reason,
+        client_ip=client_ip
+    )
+
+    # Log audit
+    audit_service = AuditService(db)
+    await audit_service.log_job_created(
+        job_uuid=job.job_uuid,
+        username=current_user["username"],
+        client_ip=client_ip,
+        request_reason=job_data.request_reason,
+        study_info={
+            "patient_id": job_data.patient_id,
+            "patient_name": job_data.patient_name,
+            "study_date": job_data.study_date,
+            "study_instance_uid": job_data.study_instance_uid
+        },
+        user_agent=request.headers.get("User-Agent")
     )
 
     # Start processing in background
@@ -81,6 +118,7 @@ async def create_job(
 @router.post("/batch", response_model=list[JobResponse])
 async def create_batch_jobs(
     batch_data: BatchJobCreate,
+    request: Request,
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -100,7 +138,11 @@ async def create_batch_jobs(
             detail="Server not found"
         )
 
+    # Get client IP
+    client_ip = get_client_ip(request)
+
     job_service = JobService(db)
+    audit_service = AuditService(db)
 
     # Convert anonymization options
     anon_options = None
@@ -116,8 +158,25 @@ async def create_batch_jobs(
         anonymization_options=anon_options,
         new_patient_id=batch_data.new_patient_id,
         new_patient_name=batch_data.new_patient_name,
-        created_by=current_user["username"]
+        created_by=current_user["username"],
+        request_reason=batch_data.request_reason,
+        client_ip=client_ip
     )
+
+    # Log audit for each job
+    for job in jobs:
+        await audit_service.log_job_created(
+            job_uuid=job.job_uuid,
+            username=current_user["username"],
+            client_ip=client_ip,
+            request_reason=batch_data.request_reason,
+            study_info={
+                "study_instance_uid": job.study_instance_uid,
+                "patient_id": job.patient_id,
+                "patient_name": job.patient_name
+            },
+            user_agent=request.headers.get("User-Agent")
+        )
 
     # Start processing jobs sequentially in background
     for job in jobs:
@@ -237,6 +296,7 @@ async def delete_job(
 @router.get("/{job_uuid}/download")
 async def download_job_result(
     job_uuid: str,
+    request: Request,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -263,6 +323,17 @@ async def download_job_result(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Output file not found"
         )
+
+    # Log audit for download
+    client_ip = get_client_ip(request)
+    audit_service = AuditService(db)
+    await audit_service.log_job_downloaded(
+        job_uuid=job_uuid,
+        username=current_user["username"],
+        client_ip=client_ip,
+        filename=job.output_filename,
+        user_agent=request.headers.get("User-Agent")
+    )
 
     return FileResponse(
         path=job.output_path,

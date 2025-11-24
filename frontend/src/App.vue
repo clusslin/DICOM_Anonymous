@@ -45,6 +45,10 @@
                   <el-icon><Tools /></el-icon>
                   <span>系統設定</span>
                 </el-menu-item>
+                <el-menu-item index="/admin/audit">
+                  <el-icon><Document /></el-icon>
+                  <span>稽核記錄</span>
+                </el-menu-item>
               </el-sub-menu>
             </el-menu>
             <div class="sidebar-footer">

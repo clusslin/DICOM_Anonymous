@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.database import init_db, async_session
 from app.core.security import get_password_hash
 from app.models.user import User
-from app.api import auth, servers, query, jobs, settings as settings_api
+from app.api import auth, servers, query, jobs, settings as settings_api, audit
 from app.services.settings_service import SettingsService, load_settings_cache
 
 # Configure logging
@@ -90,6 +90,7 @@ app.include_router(servers.router, prefix="/api")
 app.include_router(query.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
 app.include_router(settings_api.router, prefix="/api")
+app.include_router(audit.router, prefix="/api")
 
 
 @app.get("/")

@@ -47,7 +47,9 @@ class JobService:
         anonymization_options: Dict = None,
         new_patient_id: str = None,
         new_patient_name: str = None,
-        created_by: str = None
+        created_by: str = None,
+        request_reason: str = None,
+        client_ip: str = None
     ) -> AnonymizationJob:
         """Create a new anonymization job"""
         job = AnonymizationJob(
@@ -65,7 +67,9 @@ class JobService:
             new_patient_id=new_patient_id,
             new_patient_name=new_patient_name,
             status=JobStatus.PENDING,
-            created_by=created_by
+            created_by=created_by,
+            request_reason=request_reason,
+            client_ip=client_ip
         )
 
         self.db.add(job)
@@ -81,7 +85,9 @@ class JobService:
         anonymization_options: Dict = None,
         new_patient_id: str = None,
         new_patient_name: str = None,
-        created_by: str = None
+        created_by: str = None,
+        request_reason: str = None,
+        client_ip: str = None
     ) -> List[AnonymizationJob]:
         """Create multiple jobs at once (batch)"""
         jobs = []
@@ -100,7 +106,9 @@ class JobService:
                 anonymization_options=anonymization_options,
                 new_patient_id=new_patient_id,
                 new_patient_name=new_patient_name,
-                created_by=created_by
+                created_by=created_by,
+                request_reason=request_reason,
+                client_ip=client_ip
             )
             jobs.append(job)
 

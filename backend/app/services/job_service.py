@@ -20,6 +20,7 @@ from app.models.anonymization_job import AnonymizationJob, JobStatus
 from app.models.dicom_server import DicomServer
 from app.services.dicom_service import DicomService
 from app.services.anonymization_service import AnonymizationService
+from app.services.settings_service import get_cached_setting
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -301,11 +302,12 @@ class JobService:
                 anonymization_options=anon_options
             )
 
-            # Anonymize files and decompress JPEG2000 to uncompressed format
+            # Anonymize files and decompress JPEG2000 to uncompressed format if enabled
+            decompress_images = get_cached_setting("anonymization.decompress_images", True)
             anon_result = anon_service.anonymize_directory(
                 input_dir=temp_dir,
                 output_dir=output_dir,
-                decompress=True  # Decompress JPEG2000 to uncompressed format
+                decompress=decompress_images
             )
 
             if not anon_result["success"] and anon_result["processed_files"] == 0:
@@ -379,11 +381,12 @@ class JobService:
         # Count currently running jobs
         running_count = len([t for t in self._running_jobs.values() if not t.done()])
 
-        if running_count >= settings.MAX_CONCURRENT_DOWNLOADS:
+        max_concurrent = get_cached_setting("job.max_concurrent_downloads", settings.MAX_CONCURRENT_DOWNLOADS)
+        if running_count >= max_concurrent:
             return
 
         # Get pending jobs
-        available_slots = settings.MAX_CONCURRENT_DOWNLOADS - running_count
+        available_slots = max_concurrent - running_count
         pending_jobs = await self.get_pending_jobs(limit=available_slots)
 
         for job in pending_jobs:

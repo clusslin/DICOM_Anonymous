@@ -17,6 +17,7 @@ from pydicom.pixel_data_handlers.util import convert_color_space
 
 from app.models.anonymization_config import DEFAULT_ANONYMIZATION_TAGS
 from app.core.config import settings
+from app.services.settings_service import get_cached_setting
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,10 @@ class AnonymizationService:
             uid_mapping: Existing UID mappings to maintain consistency
         """
         self.new_patient_id = new_patient_id or self._generate_anonymous_id()
-        self.new_patient_name = new_patient_name or settings.DEFAULT_REPLACEMENT_NAME
+        self.new_patient_name = new_patient_name or get_cached_setting(
+            "anonymization.default_patient_name",
+            settings.DEFAULT_REPLACEMENT_NAME
+        )
 
         # Merge default options with custom options
         self.options = DEFAULT_ANONYMIZATION_TAGS.copy()
@@ -85,7 +89,8 @@ class AnonymizationService:
 
     def _generate_anonymous_id(self) -> str:
         """Generate a random anonymous patient ID"""
-        return f"ANON{datetime.now().strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:6].upper()}"
+        prefix = get_cached_setting("anonymization.default_patient_id_prefix", "ANON")
+        return f"{prefix}{datetime.now().strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:6].upper()}"
 
     def _hash_value(self, value: str) -> str:
         """Create a consistent hash of a value"""

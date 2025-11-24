@@ -41,6 +41,10 @@
                   <el-icon><User /></el-icon>
                   <span>使用者管理</span>
                 </el-menu-item>
+                <el-menu-item index="/admin/settings">
+                  <el-icon><Tools /></el-icon>
+                  <span>系統設定</span>
+                </el-menu-item>
               </el-sub-menu>
             </el-menu>
             <div class="sidebar-footer">

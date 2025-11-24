@@ -35,6 +35,12 @@ const routes = [
     name: 'AdminUsers',
     component: () => import('@/views/admin/Users.vue'),
     meta: { title: '使用者管理', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/settings',
+    name: 'AdminSettings',
+    component: () => import('@/views/admin/Settings.vue'),
+    meta: { title: '系統設定', requiresAuth: true, requiresAdmin: true }
   }
 ]
 

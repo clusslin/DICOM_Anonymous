@@ -21,6 +21,7 @@ from pydicom.dataset import Dataset
 from pydicom.uid import ExplicitVRLittleEndian, ImplicitVRLittleEndian
 
 from app.core.config import settings
+from app.services.settings_service import get_cached_setting
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,10 @@ class DicomService:
         self.ae_title = ae_title
         self.host = host
         self.port = port
-        self.local_ae_title = local_ae_title or settings.DICOM_AE_TITLE
+        self.local_ae_title = local_ae_title or get_cached_setting(
+            "dicom.local_ae_title",
+            settings.DICOM_AE_TITLE
+        )
 
     def verify_connection(self) -> Dict[str, Any]:
         """
@@ -386,5 +390,8 @@ def get_dicom_service(server_config: Dict[str, Any]) -> DicomService:
         ae_title=server_config["ae_title"],
         host=server_config["host"],
         port=server_config["port"],
-        local_ae_title=server_config.get("local_ae_title", settings.DICOM_AE_TITLE)
+        local_ae_title=server_config.get(
+            "local_ae_title",
+            get_cached_setting("dicom.local_ae_title", settings.DICOM_AE_TITLE)
+        )
     )

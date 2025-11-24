@@ -11,7 +11,8 @@ from app.core.config import settings
 from app.core.database import init_db, async_session
 from app.core.security import get_password_hash
 from app.models.user import User
-from app.api import auth, servers, query, jobs
+from app.api import auth, servers, query, jobs, settings as settings_api
+from app.services.settings_service import SettingsService, load_settings_cache
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +42,15 @@ async def create_default_admin():
             logger.info(f"Created default admin user: {settings.DEFAULT_ADMIN_USERNAME}")
 
 
+async def initialize_system_settings():
+    """Initialize system settings with defaults"""
+    async with async_session() as db:
+        service = SettingsService(db)
+        await service.initialize_defaults()
+        await load_settings_cache(db)
+        logger.info("System settings initialized")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler"""
@@ -48,6 +58,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting DICOM Anonymization Platform...")
     await init_db()
     await create_default_admin()
+    await initialize_system_settings()
     logger.info("Application started successfully")
 
     yield
@@ -78,6 +89,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(servers.router, prefix="/api")
 app.include_router(query.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
+app.include_router(settings_api.router, prefix="/api")
 
 
 @app.get("/")
